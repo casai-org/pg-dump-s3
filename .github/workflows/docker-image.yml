@@ -17,4 +17,4 @@ jobs:
     - name: Build the Docker image
       run: |
         export TAG=casai/pg-dump-s3:$(date +%s)
-        docker build ./src/ --file ./src/Dockerfile --tag $$TAG
+        docker build ./src/ --file ./src/Dockerfile --tag $TAG
