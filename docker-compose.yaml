@@ -1,0 +1,47 @@
+version: "3.0"
+services:
+  db:
+    image: ursa/postgresql-13.0:latest
+    restart: always
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - 'postgres-data:/var/lib/postgresql/data'
+  app:
+    image: pg-dump-s3:latest
+    build:
+      context: src
+    depends_on:
+      - db
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo
+      - S3_BUCKET=odoo12-db-backup
+      - AWS_ACCESS_KEY_ID=<KEY>
+      - AWS_SECRET_ACCESS_KEY=<VALUE>
+    command:
+      - /bin/bash
+      - -c
+      - |
+        # Do the backup
+        set -e
+        echo "Backing UP: $$POSTGRES_DB"
+        export PGPASSWORD=$$POSTGRES_PASSWORD
+        mkdir -p /backups
+        export DUMP_FILE_NAME=$$(date +%Y%m%d_%H%M%S)
+        export FOLDER_MONTH=$$(date +%Y%m)
+        export FOLDER_DAY=$$(date +%d)
+        export DUMP_FILE=/backups/$$DUMP_FILE_NAME.dump
+        pg_dump -h "$$POSTGRES_HOST" -d "$$POSTGRES_DB" -U "$$POSTGRES_USER" -f $$DUMP_FILE
+        sleep 5
+        bzip2 $$DUMP_FILE
+        aws s3 cp $$DUMP_FILE.bz2 s3://$$S3_BUCKET/$$FOLDER_MONTH/$$FOLDER_DAY/$$DUMP_FILE_NAME.bz2
+        exit 0
+
+volumes:
+  postgres-data:
